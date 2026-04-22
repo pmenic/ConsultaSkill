@@ -1,131 +1,131 @@
 ---
 name: consulta-claude
 description: >
-  Consulta il tuo collega Claude per validazione, brainstorming, e problem-solving
-  collaborativo. Attiva un dialogo automatico botta-e-risposta tramite file condivisi
-  nella directory .consulta/. Usa quando hai bisogno di un secondo parere, vuoi validare
-  un'architettura, o affrontare un problema complesso con due punti di vista.
+  Consult your Claude colleague for validation, brainstorming, and collaborative
+  problem-solving. Activates an automatic back-and-forth dialogue through shared
+  files in the .consulta/ directory. Use when you need a second opinion, want to
+  validate an architecture, or tackle a complex problem with two perspectives.
 ---
 
-# ConsultaClaude — Consulta il tuo collega Claude (Protocollo v1.2)
+# ConsultaClaude — Consult your Claude colleague (Protocol v1.2)
 
-Sei Gemini. Stai per dialogare con Claude CLI, attivo in un altro terminale sullo
-stesso progetto. La comunicazione avviene tramite file JSON in `.consulta/`.
+You are Gemini. You are about to dialogue with Claude CLI, running in another terminal
+on the same project. Communication happens through JSON files in `.consulta/`.
 
-L'utente invoca questa skill con `/consulta-claude` seguito da una domanda, un topic,
-oppure senza argomenti per la modalita' ascolto.
+The user invokes this skill with `/consulta-claude` followed by a question, a topic,
+or without arguments for listening mode.
 
-## PRIMA DI TUTTO
+## FIRST OF ALL
 
-Leggi `.consulta/PROTOCOL.md` — contiene lo schema dei messaggi, le regole del dialogo,
-le istruzioni comportamentali, e il protocollo di consenso. Seguilo per tutta la durata.
+Read `.consulta/PROTOCOL.md` — it contains the message schema, dialogue rules,
+behavioral instructions, and consensus protocol. Follow it for the entire duration.
 
-## I tuoi path
+## Your paths
 
-- La tua inbox: `.consulta/inbox-gemini/`
-- Inbox del collega: `.consulta/inbox-claude/`
-- Il tuo file di presenza: `.consulta/presence/gemini.ready`
-- Presenza del collega: `.consulta/presence/claude.ready`
-- Archivio messaggi: `.consulta/archive/`
+- Your inbox: `.consulta/inbox-gemini/`
+- Colleague's inbox: `.consulta/inbox-claude/`
+- Your presence file: `.consulta/presence/gemini.ready`
+- Colleague's presence: `.consulta/presence/claude.ready`
+- Message archive: `.consulta/archive/`
 
 ## STEP 1 — Pre-flight
 
-1. Verifica che `.consulta/` esista con tutte le sottodirectory:
+1. Verify `.consulta/` exists with all subdirectories:
    `presence/`, `profiles/`, `journal/`, `inbox-claude/`, `inbox-gemini/`,
    `sessions/`, `artifacts/`, `archive/`, `errors/`, `scripts/`.
-   Se mancano, creale: `mkdir -p .consulta/presence .consulta/profiles .consulta/journal .consulta/inbox-claude .consulta/inbox-gemini .consulta/sessions .consulta/artifacts .consulta/archive .consulta/errors .consulta/scripts`
+   If missing, create them: `mkdir -p .consulta/presence .consulta/profiles .consulta/journal .consulta/inbox-claude .consulta/inbox-gemini .consulta/sessions .consulta/artifacts .consulta/archive .consulta/errors .consulta/scripts`
 
-2. Se non esiste `.consulta/config.json`, crealo con i default:
+2. If `.consulta/config.json` doesn't exist, create it with defaults:
    `{"protocol_version":"1.2","max_rounds":10,"polling_interval_seconds":3,"message_timeout_seconds":300,"consensus_confidence_threshold":0.85,"deadlock_detection_rounds":3,"max_concurrent_sessions":3}`
 
-3. Se non esiste `.consulta/PROTOCOL.md`, FERMATI e avvisa l'utente.
+3. If `.consulta/PROTOCOL.md` doesn't exist, STOP and inform the user.
 
-## STEP 1b — Conosci il tuo collega
+## STEP 1b — Know your colleague
 
-1. Leggi `.consulta/profiles/gemini.md` (o crealo se manca). Elenca:
-   - Modello, tool, skill, punti di forza/debolezza.
-2. Leggi `.consulta/profiles/claude.md` — cosa sa fare il collega.
-3. Leggi `.consulta/journal/gemini-about-claude.md` — esperienze passate.
+1. Read `.consulta/profiles/gemini.md` (or create it if missing). List:
+   - Model, tools, skills, strengths/weaknesses.
+2. Read `.consulta/profiles/claude.md` — what the colleague can do.
+3. Read `.consulta/journal/gemini-about-claude.md` — past experiences.
 
-## STEP 2 — Registra presenza (Heartbeat Livello 2)
+## STEP 2 — Register presence (Heartbeat Level 2)
 
-Registra la tua presenza includendo lo stato di attenzione:
+Register your presence including attention state:
 ```
-run_shell_command("powershell.exe -Command \"@{ agent='gemini'; pid=$pid; session_mode='active'; listening_inbox='.consulta/inbox-gemini/'; started_at='$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ)'; last_processed='$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ)'; status='IDLE' } | ConvertTo-Json | Out-File -FilePath .consulta/presence/gemini.ready -Encoding UTF8\"")
+run_shell_command("bash -c 'cat > .consulta/presence/gemini.ready <<EOF\n{\"agent\":\"gemini\",\"pid\":$$,\"session_mode\":\"active\",\"listening_inbox\":\".consulta/inbox-gemini/\",\"started_at\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\",\"last_processed\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\",\"status\":\"IDLE\"}\nEOF'")
 ```
 
-## STEP 3 — Verifica presenza di Claude
+## STEP 3 — Check Claude presence
 
-Controlla se esiste `.consulta/presence/claude.ready` e se e' recente (< 60 secondi).
-Se Claude non e' online, informa l'utente e valuta la modalita' headless.
+Check if `.consulta/presence/claude.ready` exists and is recent (< 60 seconds).
+If Claude is not online, inform the user and consider headless mode.
 
-## STEP 4 — Componi il messaggio iniziale
+## STEP 4 — Compose initial message
 
-Se l'utente ha fornito una domanda:
-1. Raccogli contesto: `user_instructions`, `project_state`, `conversation_summary`.
-2. Genera `session_id`: topic in kebab-case, max 30 char.
-3. Componi messaggio JSON (tipo `REQUEST`, `round: 1`, `expects_reply: true`).
-4. Scrivi in inbox di Claude usando il naming con timestamp:
+If the user provided a question:
+1. Gather context: `user_instructions`, `project_state`, `conversation_summary`.
+2. Generate `session_id`: topic in kebab-case, max 30 chars.
+3. Compose JSON message (type `REQUEST`, `round: 1`, `expects_reply: true`).
+4. Write to Claude's inbox using timestamp naming:
    `{session_id}-{timestamp}-gemini-request.json`
-5. Crea sessione in `.consulta/sessions/{session_id}.json`.
-6. Informa l'utente: "Consulta inviata. In attesa..."
-7. Procedi a **STEP 5a** (Attesa Sincrona).
+5. Create session in `.consulta/sessions/{session_id}.json`.
+6. Inform user: "Consultation sent. Waiting..."
+7. Proceed to **STEP 5a** (Synchronous Wait).
 
 ## STEP 5 — Tool Loop (Batch Processing & Move-on-Process)
 
-Ripeti questo ciclo finche' la sessione e' attiva:
+Repeat this cycle while the session is active:
 
-**5a. Attesa Sincrona (Bloccante)**
-Lancia lo script e BLOCCA il terminale finche' non arriva posta:
+**5a. Synchronous Wait (Blocking)**
+Launch the script and BLOCK the terminal until mail arrives:
 ```
 bash .consulta/scripts/wait-for-message.sh .consulta/inbox-gemini/ 300 3
 ```
-- Se output e' un filename: procedi a **5b**.
-- Se output e' "TIMEOUT": chiedi all'utente se continuare.
+- If output is a filename: proceed to **5b**.
+- If output is "TIMEOUT": ask user whether to continue.
 
 **5b. Batch Processing & Atomic Move**
-1. Elenca TUTTI i file in inbox: `ls .consulta/inbox-gemini/*.json`
-2. Ordina per timestamp (nome file) — FIFO globale.
-3. Per OGNI file nel batch:
-   - **READ**: leggi il file JSON.
-   - **MOVE**: sposta SUBITO in archivio: `mv .consulta/inbox-gemini/{file} .consulta/archive/`
-   - **VALIDATE**: se JSON malformato, sposta in `.consulta/errors/` e prosegui con il prossimo.
-   - **PROCESS**: se valido, elabora il contenuto.
+1. List ALL files in inbox: `ls .consulta/inbox-gemini/*.json`
+2. Sort by timestamp (filename) — global FIFO.
+3. For EACH file in the batch:
+   - **READ**: read the JSON file.
+   - **MOVE**: immediately move to archive: `mv .consulta/inbox-gemini/{file} .consulta/archive/`
+   - **VALIDATE**: if malformed JSON, move to `.consulta/errors/` and continue with next.
+   - **PROCESS**: if valid, elaborate the content.
 
-**5c. Valutazione Critica**
-Segui la checklist in PROTOCOL.md sezione 6. Rispondi a ogni `specific_questions`.
+**5c. Critical Evaluation**
+Follow the checklist in PROTOCOL.md section 6. Answer every `specific_questions`.
 
-**5d. Decidi Risposta**
+**5d. Decide Response**
 `AGREE`, `CLARIFY`, `COUNTER_PROPOSE`, `EVALUATE`, `ESCALATE`.
 
-**5e. Componi e Invia**
-1. Genera timestamp: `TS=$(date -u +%Y%m%dT%H%M%SZ)`
-2. Genera filename: `{session_id}-${TS}-gemini-{type}.json`
-3. Scrivi in `.consulta/inbox-claude/${filename}`.
+**5e. Compose and Send**
+1. Generate timestamp: `TS=$(date -u +%Y%m%dT%H%M%SZ)`
+2. Generate filename: `{session_id}-${TS}-gemini-{type}.json`
+3. Write to `.consulta/inbox-claude/${filename}`.
 
-**5f. Aggiorna Stato Attenzione**
-Aggiorna il file `.ready` (STEP 2) con `last_processed` attuale e `status='PROCESSING'`.
+**5f. Update Attention State**
+Update the `.ready` file (STEP 2) with current `last_processed` and `status='PROCESSING'`.
 
-**5g. Gestione Loop**
-- Se il tuo messaggio o l'ultimo del collega ha `expects_reply: true`:
-  → Torna a **5a** (Resta in attesa bloccante).
-- Altrimenti: → **STEP 6**.
+**5g. Loop Management**
+- If your message or the colleague's last message has `expects_reply: true`:
+  → Return to **5a** (stay in blocking wait).
+- Otherwise: → **STEP 6**.
 
-## STEP 6 — Conclusione e Artifacts
+## STEP 6 — Conclusion and Artifacts
 
-**Su CONSENSUS:**
-1. Crea artifact: `.consulta/artifacts/{session_id}/merged-solution.md`.
-2. Aggiorna sessione: `state: "CONSENSUS"`.
-3. Presenta i risultati all'utente.
-4. **IMPORTANTE**: Procedi a **STEP 6b** (Diario) prima di fermarti.
+**On CONSENSUS:**
+1. Create artifact: `.consulta/artifacts/{session_id}/merged-solution.md`.
+2. Update session: `state: "CONSENSUS"`.
+3. Present results to user.
+4. **IMPORTANT**: Proceed to **STEP 6b** (Journal) before stopping.
 
-## STEP 6b — Diario e Mentoring (MANDATORIO)
+## STEP 6b — Journal and Mentoring (MANDATORY)
 
-Non chiudere il turno senza aver aggiornato la conoscenza condivisa:
-1. **Journal**: Aggiungi entry in `.consulta/journal/gemini-about-claude.md`. Annota cosa ha funzionato e cosa no in questa specifica sessione.
-2. **Mentoring**: Se Claude ha mostrato un gap, scrivi un consiglio breve in `CLAUDE.md` sotto "## Consigli dal collega Gemini".
+Do not close the turn without updating shared knowledge:
+1. **Journal**: Add entry in `.consulta/journal/gemini-about-claude.md`. Note what worked and what didn't in this specific session.
+2. **Mentoring**: If Claude showed a gap, write brief advice in `CLAUDE.md` under "## Advice from colleague Gemini".
 
 ## Recovery
 
-Se perdi il filo, leggi `.consulta/sessions/` e l'ultimo file in `.consulta/archive/`.
-Controlla sempre `ls .consulta/inbox-gemini/` prima di iniziare.
+If you lose track, read `.consulta/sessions/` and the last file in `.consulta/archive/`.
+Always check `ls .consulta/inbox-gemini/` before starting.
