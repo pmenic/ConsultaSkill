@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# ConsultaSkill Watcher — monitora una inbox per nuovi messaggi JSON
-# Uso: bash watcher.sh <inbox-dir> <ready-file> [poll-seconds] [heartbeat-seconds]
+# ConsultaSkill Watcher — monitors an inbox for new JSON messages
+# Usage: bash watcher.sh <inbox-dir> <ready-file> [poll-seconds] [heartbeat-seconds]
 #
-# Output: una riga "NEW:<filename>" per ogni nuovo file rilevato
-# Il file .ready viene creato all'avvio e rimosso alla chiusura (trap EXIT)
-# Il timestamp del .ready viene aggiornato ogni heartbeat-seconds (heartbeat)
+# Output: one line "NEW:<filename>" for each new file detected
+# The .ready file is created at startup and removed on exit (trap EXIT)
+# The .ready timestamp is updated every heartbeat-seconds (heartbeat)
 
 set -uo pipefail
 shopt -s nullglob
 
-INBOX_DIR="${1:?Uso: watcher.sh <inbox-dir> <ready-file> [poll-seconds] [heartbeat-seconds]}"
-READY_FILE="${2:?Uso: watcher.sh <inbox-dir> <ready-file> [poll-seconds] [heartbeat-seconds]}"
+INBOX_DIR="${1:?Usage: watcher.sh <inbox-dir> <ready-file> [poll-seconds] [heartbeat-seconds]}"
+READY_FILE="${2:?Usage: watcher.sh <inbox-dir> <ready-file> [poll-seconds] [heartbeat-seconds]}"
 POLL_SECONDS="${3:-3}"
 HEARTBEAT_SECONDS="${4:-30}"
 
-# Crea directory se non esistono
+# Create directories if they don't exist
 mkdir -p "$INBOX_DIR" "$(dirname "$READY_FILE")"
 
-# Determina nome agente dal path inbox
+# Determine agent name from inbox path
 AGENT_NAME="unknown"
 if [[ "$INBOX_DIR" == *claude* ]]; then
   AGENT_NAME="claude"
@@ -25,7 +25,7 @@ elif [[ "$INBOX_DIR" == *gemini* ]]; then
   AGENT_NAME="gemini"
 fi
 
-# Registra presenza
+# Register presence
 cat > "$READY_FILE" <<EOJSON
 {
   "agent": "$AGENT_NAME",
@@ -36,13 +36,13 @@ cat > "$READY_FILE" <<EOJSON
 }
 EOJSON
 
-# Cleanup alla chiusura
+# Cleanup on exit
 cleanup() {
   rm -f "$READY_FILE" 2>/dev/null
 }
 trap cleanup EXIT INT TERM
 
-# Cataloga i file gia' presenti nella inbox
+# Catalog files already present in inbox
 declare -A KNOWN
 for f in "$INBOX_DIR"/*.json; do
   if [ -f "$f" ]; then
@@ -57,19 +57,19 @@ echo "WATCHER:STARTED:$AGENT_NAME:$$"
 while true; do
   sleep "$POLL_SECONDS"
 
-  # Heartbeat: aggiorna il timestamp del file .ready
+  # Heartbeat: update .ready file timestamp
   NOW=$(date +%s)
   if (( NOW - LAST_HEARTBEAT >= HEARTBEAT_SECONDS )); then
     touch "$READY_FILE" 2>/dev/null
     LAST_HEARTBEAT=$NOW
   fi
 
-  # Controlla nuovi file nella inbox
+  # Check for new files in inbox
   for f in "$INBOX_DIR"/*.json; do
     [ -f "$f" ] || continue
     BASENAME="$(basename "$f")"
     if [ -z "${KNOWN[$BASENAME]+x}" ]; then
-      # Attendi che il file sia un JSON valido (completamente scritto)
+      # Wait for the file to be valid JSON (fully written)
       RETRIES=0
       while [ $RETRIES -lt 5 ]; do
         if python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" 2>/dev/null; then

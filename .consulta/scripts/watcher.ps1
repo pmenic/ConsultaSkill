@@ -1,9 +1,9 @@
-# ConsultaSkill Watcher — monitora una inbox per nuovi messaggi JSON
-# Uso: powershell -NoProfile -File watcher.ps1 -InboxDir <path> -ReadyFile <path> [-PollSeconds 3] [-HeartbeatSeconds 30]
+# ConsultaSkill Watcher — monitors an inbox for new JSON messages
+# Usage: powershell -NoProfile -File watcher.ps1 -InboxDir <path> -ReadyFile <path> [-PollSeconds 3] [-HeartbeatSeconds 30]
 #
-# Output: una riga "NEW:<filename>" per ogni nuovo file rilevato
-# Il file .ready viene creato all'avvio e rimosso alla chiusura
-# Il timestamp del .ready viene aggiornato ogni HeartbeatSeconds
+# Output: one line "NEW:<filename>" for each new file detected
+# The .ready file is created at startup and removed on exit
+# The .ready timestamp is updated every HeartbeatSeconds
 
 param(
     [Parameter(Mandatory=$true)][string]$InboxDir,
@@ -14,7 +14,7 @@ param(
 
 $ErrorActionPreference = 'SilentlyContinue'
 
-# Crea directory se non esistono
+# Create directories if they don't exist
 if (-not (Test-Path $InboxDir)) {
     New-Item -ItemType Directory -Path $InboxDir -Force | Out-Null
 }
@@ -23,12 +23,12 @@ if (-not (Test-Path $readyDir)) {
     New-Item -ItemType Directory -Path $readyDir -Force | Out-Null
 }
 
-# Determina nome agente dal path inbox
+# Determine agent name from inbox path
 $agentName = 'unknown'
 if ($InboxDir -match 'claude') { $agentName = 'claude' }
 elseif ($InboxDir -match 'gemini') { $agentName = 'gemini' }
 
-# Registra presenza
+# Register presence
 $readyContent = @{
     agent = $agentName
     pid = $PID
@@ -38,7 +38,7 @@ $readyContent = @{
 } | ConvertTo-Json -Compress
 Set-Content -Path $ReadyFile -Value $readyContent -Encoding UTF8
 
-# Cataloga file gia' presenti
+# Catalog files already present
 $known = @{}
 Get-ChildItem -Path $InboxDir -Filter '*.json' -File -ErrorAction SilentlyContinue | ForEach-Object {
     $known[$_.Name] = $true
@@ -52,18 +52,18 @@ try {
     while ($true) {
         Start-Sleep -Seconds $PollSeconds
 
-        # Heartbeat
+        # Heartbeat: update .ready timestamp
         $now = Get-Date
         if (($now - $lastHeartbeat).TotalSeconds -ge $HeartbeatSeconds) {
             (Get-Item $ReadyFile -ErrorAction SilentlyContinue).LastWriteTime = $now
             $lastHeartbeat = $now
         }
 
-        # Controlla nuovi file
+        # Check for new files
         $current = Get-ChildItem -Path $InboxDir -Filter '*.json' -File -ErrorAction SilentlyContinue
         foreach ($file in $current) {
             if (-not $known.ContainsKey($file.Name)) {
-                # Attendi che il file sia completamente scritto
+                # Wait for file to be fully written (valid JSON)
                 $retries = 0
                 $valid = $false
                 while ($retries -lt 5 -and -not $valid) {
@@ -82,6 +82,6 @@ try {
         }
     }
 } finally {
-    # Cleanup: rimuovi file di presenza
+    # Cleanup: remove presence file
     if (Test-Path $ReadyFile) { Remove-Item $ReadyFile -Force -ErrorAction SilentlyContinue }
 }
