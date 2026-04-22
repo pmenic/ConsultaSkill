@@ -1,0 +1,31 @@
+# ConsultaSkill runtime data (not for version control)
+.consulta/inbox-claude/*.json
+.consulta/inbox-gemini/*.json
+.consulta/presence/*.ready
+.consulta/archive/*.json
+.consulta/errors/*.json
+.consulta/sessions/*.json
+.consulta/journal/*.md
+.consulta/profiles/*.md
+.consulta/artifacts/**
+
+# Prompt development files (local only)
+prompt.txt
+prompt001.txt
+prompt002.txt
+
+# Project-specific docs (local only)
+GLEIF.md
+GEMINI.md
+FEATURE_REQUEST_MONITOR.md
+
+# Claude/Gemini local settings
+.claude/settings.local.json
+.gemini/settings.json
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Plan files
+*.plan.md

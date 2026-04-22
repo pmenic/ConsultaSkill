@@ -1,0 +1,17 @@
+{
+  "max_rounds": 10,
+  "polling_interval_seconds": 3,
+  "heartbeat_seconds": 30,
+  "presence_timeout_seconds": 60,
+  "message_timeout_seconds": 300,
+  "consensus_confidence_threshold": 0.85,
+  "deadlock_detection_rounds": 3,
+  "auto_escalate_on_deadlock": true,
+  "max_concurrent_sessions": 3,
+  "modes_enabled": ["rapida", "profondo", "parallelo", "competitiva"],
+  "default_mode": "rapida",
+  "fallback_mode": "ask_user",
+  "artifacts_dir": "artifacts",
+  "log_level": "info",
+  "cleanup_completed_sessions_after_days": 30
+}
