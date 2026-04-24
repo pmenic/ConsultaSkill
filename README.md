@@ -195,4 +195,4 @@ MIT
 
 ## Credits
 
-Created by [@pmenichetti](https://github.com/pmenichetti).
+Created by [@pmenic](https://github.com/pmenic).
